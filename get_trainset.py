@@ -22,8 +22,10 @@ def get_positive(rootdir, trainclasses, outdir):
     jpgdir = rootdir+'JPEGImages/'
     xmls = toolkit.scanfor(xmldir, '.xml')
     ann = VOCAnnotation()
+    total = len(xmls)
+    num = 0
     for sname,fname in xmls:
-        print 'pos ' + sname
+        num += 1
         ann.load(fname)
         img = cv2.imread(jpgdir+sname+'.jpg',1)
         allfeat = []
@@ -38,6 +40,11 @@ def get_positive(rootdir, trainclasses, outdir):
         if len(allfeat) > 0:
             with open(outdir+sname+'.pf','w') as fout:
                 pickle.dump(allfeat, fout)
+        if 0 == num%10:
+            print '.',
+        if 0 == num%500:
+            print 'pos '+str(num) + '/' + str(total)
+    print ''
 
 
 def get_negative(rootdir, outdir):
@@ -45,8 +52,10 @@ def get_negative(rootdir, outdir):
     jpgdir = rootdir+'JPEGImages/'
     xmls = toolkit.scanfor(xmldir, '.xml')
     ann = VOCAnnotation()
+    num = 0
+    total = len(xmls)
     for sname,fname in xmls:
-        print 'neg ' + sname
+        num += 1
         ann.load(fname)
         img = cv2.imread(jpgdir+sname+'.jpg',1)
         allfeat = []
@@ -72,6 +81,12 @@ def get_negative(rootdir, outdir):
         if len(allfeat) > 0:
             with open(outdir+sname+'.nf','w') as fout:
                 pickle.dump(allfeat, fout)
+        if 0 == num%10:
+            print '.',
+        if 0 == num%500:
+            print 'neg '+str(num) + '/' + str(total)
+    print ''
+
 
 
 
