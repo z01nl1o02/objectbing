@@ -6,6 +6,7 @@ import toolkit
 import pickle
 import random
 import numpy as np
+import pdb
 
 def get_feature(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -14,8 +15,7 @@ def get_feature(img):
     grad = np.sqrt(dx * dx + dy * dy)
     grad = cv2.resize(grad, (8,8))
     grad.shape = (1,64)
-    grad = list(grad)
-    return [grad]
+    return grad
 
 def get_positive(rootdir, trainclasses, outdir):
     xmldir = rootdir+'Annotations/'
@@ -32,9 +32,9 @@ def get_positive(rootdir, trainclasses, outdir):
                 subimg = img[obj.ymin:obj.ymax, obj.xmin:obj.xmax,:]
                 feat = get_feature(subimg)
                 if len(allfeat) < 1:
-                    allfeat = [f for f in feat]
+                    allfeat = [feat]
                 else:
-                    allfeat.extend(feat)             
+                    allfeat.append(feat)             
         if len(allfeat) > 0:
             with open(outdir+sname+'.pf','w') as fout:
                 pickle.dump(allfeat, fout)
@@ -66,9 +66,9 @@ def get_negative(rootdir, outdir):
             subimg = img[y0:y1, x0:x1, :]
             feat = get_feature(subimg)
             if len(allfeat) < 1:
-                allfeat = [f for f in feat]
+                allfeat = [feat]
             else:
-                allfeat.extend(feat)
+                allfeat.append(feat)
         if len(allfeat) > 0:
             with open(outdir+sname+'.nf','w') as fout:
                 pickle.dump(allfeat, fout)
