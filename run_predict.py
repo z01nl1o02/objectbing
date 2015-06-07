@@ -4,7 +4,7 @@ import numpy as np
 import pickle
 from sklearn import svm
 import toolkit as tk
-from get_trainset import get_feature
+from get_trainset import get_norm_gradient
 from train_detector import normsamples
 import pdb
 
@@ -18,6 +18,7 @@ def cmp_score(a,b):
 
 def predict_for_single_image(imgpath, minv, maxv, detector):
     img = cv2.imread(imgpath,1)
+    grad = get_norm_gradient(img)
     #blksize = (10,20,40,80,160,320)
     blksize = (20,40,80,160,320)
     result = []
@@ -26,13 +27,13 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
             scalex = 8.0 / blkw
             scaley = 8.0 / blkh
             dsize = (int(img.shape[1] * scalex), int(img.shape[0] * scaley))
-            resized = cv2.resize(img, dsize)
-            print str(blkh) + 'x' + str(blkw)
+            resized = cv2.resize(grad, dsize)
+            print str(blkh) + 'x' + str(blkw) + ' ' + str(scaley) + 'x' + str(scalex)
             res = []
             for y in range(resized.shape[0] - 8):
                 for x in range(resized.shape[1] - 8):
-                    blk = resized[y:y+8, x:x+8,:]
-                    feat = get_feature(blk)
+                    feat = resized[y:y+8, x:x+8]
+                    feat = np.reshape(feat,(1,64))
                     if x == 0 and y == 0:
                         samples = feat
                         res = [[x / scalex, y / scaley, blkw, blkh]]
@@ -60,7 +61,7 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
         y = int(y)
         w = int(w)
         h = int(h)
-        if s < 0.2:
+        if s < 0.1:
             continue
         num += 1
         cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),2)
@@ -72,7 +73,7 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
 if __name__ == "__main__":
     with open('vocpath','r') as fin:
         vocpath = fin.readline().strip()
-    imgpath = vocpath + "JPEGImages/000467.jpg"
+    imgpath = vocpath + "JPEGImages/000369.jpg"
     with open('detector.txt','r') as fin:
         minv,maxv,detector = pickle.load(fin)
     predict_for_single_image(imgpath, minv, maxv, detector) 

@@ -8,14 +8,13 @@ import random
 import numpy as np
 import pdb
 
-def get_feature(img):
+def get_norm_gradient(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     dx = cv2.Sobel(gray,cv2.CV_32F,1,0)
     dy = cv2.Sobel(gray,cv2.CV_32F,0,1)
     grad = np.sqrt(dx * dx + dy * dy)
-    grad = cv2.resize(grad, (8,8))
-    grad.shape = (1,64)
     return grad
+
 
 def get_positive(rootdir, trainclasses, outdir):
     xmldir = rootdir+'Annotations/'
@@ -28,11 +27,35 @@ def get_positive(rootdir, trainclasses, outdir):
         num += 1
         ann.load(fname)
         img = cv2.imread(jpgdir+sname+'.jpg',1)
+        grad = get_norm_gradient(img)
+
+        if 0:
+            dbg = np.minimum(255,grad)
+            dbg = np.uint8(dbg)
+            cv2.imwrite('dbg.1.jpg', dbg)
+
+
         allfeat = []
         for obj in ann.objects:
             if obj.name in trainclasses:
-                subimg = img[obj.ymin:obj.ymax, obj.xmin:obj.xmax,:]
-                feat = get_feature(subimg)
+                feat = grad[obj.ymin:obj.ymax, obj.xmin:obj.xmax]
+
+                if 0:
+                    dbg = np.minimum(255,feat)
+                    dbg = np.uint8(dbg)
+                    cv2.imwrite('dbg.2.jpg', dbg)
+
+
+                feat = cv2.resize(feat,(8,8))
+
+
+                if 0:
+                    dbg = np.minimum(255,feat)
+                    dbg = np.uint8(dbg)
+                    cv2.imwrite('dbg.3.jpg', dbg)
+
+
+                feat.shape = (1,64)
                 if len(allfeat) < 1:
                     allfeat = [feat]
                 else:
@@ -58,6 +81,7 @@ def get_negative(rootdir, outdir):
         num += 1
         ann.load(fname)
         img = cv2.imread(jpgdir+sname+'.jpg',1)
+        grad = get_norm_gradient(img)
         allfeat = []
         for obj in ann.objects:
             w = obj.xmax - obj.xmin
@@ -72,8 +96,9 @@ def get_negative(rootdir, outdir):
             h = int(h)
             x1 = x0 + w
             y1 = y0 + h
-            subimg = img[y0:y1, x0:x1, :]
-            feat = get_feature(subimg)
+            feat = grad[y0:y1, x0:x1]
+            feat = cv2.resize(feat, (8,8))
+            feat.shape = (1,64)
             if len(allfeat) < 1:
                 allfeat = [feat]
             else:
