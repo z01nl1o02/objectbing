@@ -18,7 +18,7 @@ def cmp_score(a,b):
 
 def predict_for_single_image(imgpath, minv, maxv, detector):
     img = cv2.imread(imgpath,1)
-    grad = get_norm_gradient(img)
+    grads = get_norm_gradient(img)
     #blksize = (10,20,40,80,160,320)
     blksize = (20,40,80,160,320)
     result = []
@@ -27,19 +27,26 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
             scalex = 8.0 / blkw
             scaley = 8.0 / blkh
             dsize = (int(img.shape[1] * scalex), int(img.shape[0] * scaley))
-            resized = cv2.resize(grad, dsize)
+            resizeds = []
+            for grad in grads:
+                grad = cv2.resize(grad, dsize)
+                if len(resizeds) < 1:
+                    resizeds = [grad]
+                else:
+                    resizeds.append(grad)
             print str(blkh) + 'x' + str(blkw) + ' ' + str(scaley) + 'x' + str(scalex)
             res = []
-            for y in range(resized.shape[0] - 8):
-                for x in range(resized.shape[1] - 8):
-                    feat = resized[y:y+8, x:x+8]
-                    feat = np.reshape(feat,(1,64))
-                    if x == 0 and y == 0:
-                        samples = feat
-                        res = [[x / scalex, y / scaley, blkw, blkh]]
-                    else:
-                        samples = np.vstack((samples, feat))
-                        res.append([x / scalex, y / scaley, blkw, blkh])
+            for y in range(resizeds[0].shape[0] - 8):
+                for x in range(resizeds[0].shape[1] - 8):
+                    for resized in resizeds:
+                        feat = resized[y:y+8, x:x+8]
+                        feat = np.reshape(feat,(1,64))
+                        if len(res) < 1:
+                            samples = feat
+                            res = [[x / scalex, y / scaley, blkw, blkh]]
+                        else:
+                            samples = np.vstack((samples, feat))
+                            res.append([x / scalex, y / scaley, blkw, blkh])
             if len(res) > 0:
                 samples = normsamples(samples, minv,maxv)
                 scores = detector.decision_function(samples)
@@ -61,10 +68,10 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
         y = int(y)
         w = int(w)
         h = int(h)
-        if s < 0.1:
+        if num > 400:
             continue
         num += 1
-        cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),2)
+        cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
     print "# of prd " + str(num)
     cv2.imwrite('x.jpg',img)
     return result                                    

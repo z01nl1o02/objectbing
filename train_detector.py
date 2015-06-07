@@ -21,34 +21,32 @@ def loadsamples(indir):
     samples = []
     labels = []
     posnum = 0
-    total = len(posfiles)
     for sname,fname in posfiles:
-        posnum += 1
         with open(fname, 'r') as fin:
-            feat = pickle.load(fin)
-        feat = feat[0]
-        if posnum == 1:
-            samples = feat
-        else:
-            samples = np.vstack((samples, feat))
-        if posnum % 10 == 0:
-            print '.',
-        if posnum % 500 == 0:
-            print 'pos '+str(posnum)+'/'+str(total)
+            feats = pickle.load(fin)
+        for feat in feats: 
+            posnum += 1
+            if posnum == 1:
+                samples = feat
+            else:
+                samples = np.vstack((samples, feat))
+            if posnum % 100 == 0:
+                print '.',
+            if posnum % 5000 == 0:
+                print 'pos '+str(posnum)
     print ' '
 
-    total = len(negfiles)
     negnum = 0
     for sname, fname in negfiles:
-        negnum += 1
         with open(fname, 'r') as fin:
-            feat = pickle.load(fin)
-        feat = feat[0]
-        samples = np.vstack((samples, feat))
-        if negnum % 10 == 0:
-            print '.',
-        if 0 == negnum % 500:
-            print 'neg '+str(negnum)+'/'+str(total)
+            feats = pickle.load(fin)
+        for feat in feats:
+            negnum+=1
+            samples = np.vstack((samples, feat))
+            if negnum % 100 == 0:
+                print '.',
+            if 0 == negnum % 5000:
+                print 'neg '+str(negnum)
     print ' '
 
     print 'pos : neg = ' + str(posnum) + ' : ' + str(negnum)
@@ -61,7 +59,7 @@ def loadsamples(indir):
     return labels,samples
 
 def traindetector(labels, samples):
-    detector = svm.LinearSVC(C=1.0,verbose=1)
+    detector = svm.LinearSVC(C=100.0,verbose=1,max_iter=10000)
     minv = np.min(samples,0)
     maxv = np.max(samples,0)
     samples = normsamples(samples,minv, maxv)
