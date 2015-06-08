@@ -16,6 +16,30 @@ def cmp_score(a,b):
     else:
         return 0
 
+def nms(cands):
+    with open('nms.input.dump', 'w') as fin:
+        pickle.dump(cands,fin)
+
+    thresh = 0.05
+    cands.sort(cmp_score)
+    result = []
+    for k in range(len(cands)-1,-1,-1):
+        if cands[k][4] < thresh:
+            continue
+        r1 = (cands[k][0], cands[k][1], cands[k][0] + cands[k][2], cands[k][1] + cands[k][3])
+        dup = 0
+        for j in range(k):
+            r2 = (cands[j][0], cands[j][1], cands[j][0] + cands[j][2], cands[j][1] + cands[j][3])
+            if tk.inter2union(r1,r2) > 0.4:
+                dup = 1
+                break
+        if dup == 0:
+            if len(result) < 1:
+                result = [cands[k]]
+            else:
+                result.append(cands[k])
+    return result
+
 def predict_for_single_image(imgpath, minv, maxv, detector):
     img = cv2.imread(imgpath,1)
     grads = get_norm_gradient(img)
@@ -60,28 +84,52 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
                         result = poswnd
                     else:
                         result.extend(poswnd)
-    result.sort(cmp_score)
+    #result.sort(cmp_score)
     print "# of objects " + str(len(result))
+    result = nms(result)
+    print "# of objects " + str(len(result)) + ' after nms'
     num = 0
     for x, y, w, h,s in result:
         x = int(x)
         y = int(y)
         w = int(w)
         h = int(h)
-        if num > 400:
-            continue
         num += 1
         cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
     print "# of prd " + str(num)
     cv2.imwrite('x.jpg',img)
     return result                                    
 
+def run_dbg(imgpath):
+    with open('nms.input.dump', 'r') as fin:
+        result = pickle.load(fin)
+
+
+    img = cv2.imread(imgpath,1)
+    print "# of objects " + str(len(result))
+    result = nms(result)
+    print "# of objects " + str(len(result)) + ' after nms'
+    num = 0
+    for x, y, w, h,s in result:
+        x = int(x)
+        y = int(y)
+        w = int(w)
+        h = int(h)
+        num += 1
+        cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
+    print "# of prd " + str(num)
+    cv2.imwrite('x.jpg',img)
+
+
 
 if __name__ == "__main__":
     with open('vocpath','r') as fin:
         vocpath = fin.readline().strip()
     imgpath = vocpath + "JPEGImages/000369.jpg"
-    with open('detector.txt','r') as fin:
-        minv,maxv,detector = pickle.load(fin)
-    predict_for_single_image(imgpath, minv, maxv, detector) 
-
+    imgpath = vocpath + "JPEGImages/000753.jpg"
+    if 1:
+        with open('detector.txt','r') as fin:
+            minv,maxv,detector = pickle.load(fin)
+        predict_for_single_image(imgpath, minv, maxv, detector) 
+    else:
+        run_dbg(imgpath)

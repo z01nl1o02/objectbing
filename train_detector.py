@@ -36,11 +36,15 @@ def loadsamples(indir):
                 print 'pos '+str(posnum)
     print ' '
 
+    skip = 0
     negnum = 0
     for sname, fname in negfiles:
         with open(fname, 'r') as fin:
             feats = pickle.load(fin)
         for feat in feats:
+            skip += 1
+       #     if 0 != skip % 5:
+       #         continue
             negnum+=1
             samples = np.vstack((samples, feat))
             if negnum % 100 == 0:
@@ -59,7 +63,10 @@ def loadsamples(indir):
     return labels,samples
 
 def traindetector(labels, samples):
-    detector = svm.LinearSVC(C=100.0,verbose=1,max_iter=10000)
+    #detector = svm.SVC(C=1000.0,verbose=1,max_iter=500000,kernel='linear')
+    with open('samples.dump', 'w') as fout:
+        pickle.dump((labels,samples),fout)
+    detector = svm.LinearSVC(C=1000,verbose=1,max_iter=300000,dual=False,tol=1e-6)
     minv = np.min(samples,0)
     maxv = np.max(samples,0)
     samples = normsamples(samples,minv, maxv)
@@ -70,12 +77,20 @@ def testdetector(minv,maxv,detector,labels, samples):
     samples = normsamples(samples,minv,maxv)
     prd = detector.predict(samples)
     hitnum = np.sum(prd == labels)
-    print 'test: ' + str(hitnum) + '/' + str(labels.shape[0]) + ' ' + str(hitnum * 1.0 / labels.shape[0]) 
+    poshit = 0
+    for k in range(len(labels)):
+        if prd[k] == labels[k] and labels[k] > 0:
+            poshit += 1
+    print 'test: ' + str(hitnum) + '/' + str(labels.shape[0]) + ' ' + str(hitnum * 1.0 / labels.shape[0]) + ' ' + str(poshit)
 
 if __name__=="__main__":
     featdir = 'f1/'
     detectorpath = 'detector.txt'
-    labels, samples = loadsamples(featdir)
+    if 0:
+        with open('samples.dump','r') as fin:
+            labels, samples = pickle.load(fin)
+    else:
+        labels, samples = loadsamples(featdir)
     minv,maxv,detector = traindetector(labels, samples)
     testdetector(minv,maxv, detector, labels, samples)
     with open(detectorpath, 'w') as fout:
