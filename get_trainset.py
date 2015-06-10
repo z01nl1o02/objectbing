@@ -12,18 +12,21 @@ import pdb
 def get_norm_gradientK(gray):
     dx = cv2.Sobel(gray,cv2.CV_32F,1,0)
     dy = cv2.Sobel(gray,cv2.CV_32F,0,1)
-    grad = np.sqrt(dx * dx + dy * dy)
+    dx = np.absolute(dx)
+    dy = np.absolute(dy)
+    dx = np.minimum(dx,255)
+    dy = np.minimum(dy,255)
+    grad = np.maximum(dx,dy)
     return grad
 
 
 def get_norm_gradient(img):
-#    grad = get_norm_gradientK(img[:,:,0])
-#    grad = np.maximum(grad,get_norm_gradientK(img[:,:,1]))
-#    grad = np.maximum(grad,get_norm_gradientK(img[:,:,2]))
-
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    grad = get_norm_gradientK(img[:,:,0])
+    grad = np.maximum(grad,get_norm_gradientK(img[:,:,1]))
+    grad = np.maximum(grad,get_norm_gradientK(img[:,:,2]))
+#    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 #    grad = np.maximum(grad,get_norm_gradientK(gray))
-    grad = get_norm_gradientK(gray)
+#    grad = get_norm_gradientK(gray)
 
     return [grad]
 
@@ -48,36 +51,51 @@ def get_positive(rootdir, trainclasses, outdir):
                     
                     objw = obj.xmax - obj.xmin
                     objh = obj.ymax - obj.ymin
-                    if objw * objh < 1000:
+                    if objw * objh < 100:
                         continue 
 
-                    w0 = int(objw / 1.5)
+
+                    w0 = int(objw / 2)
                     w1 = int(objw * 1.5)
-                    h0 = int(objh / 1.5)
+                    h0 = int(objh / 2)
                     h1 = int(objh * 1.5)
                     x0 = obj.xmin
                     y0 = obj.ymin
                     r1 = (x0,y0, x0 + objw, y0 + objh)
-                    hs = (h1 - h0) / 4
-                    ws = (w1 - w0) / 4
-                    if hs < 2:
-                        hs = 2
-                    if ws < 2:
-                        ws = 2
-                    for h in range(h0,h1,hs):
-                        for w in range(w0,w1,ws):
-                           x1 = np.minimum(img.shape[1] - 1, x0 + w)
-                           y1 = np.minimum(img.shape[0] - 1, y0 + h)
-                           r2 = (x0,y0,x1,y1)
-                           if toolkit.inter2union(r1,r2) <= 0.5:
-                               continue
-                           feat = grad[y0:y1,x0:x1]
-                           feat = cv2.resize(feat,(8,8))
-                           feat.shape = (1,64)
-                           if len(allfeat) < 1:
-                              allfeat = [feat]
-                           else:
-                              allfeat.append(feat)       
+
+                    if 1:
+                        hs = (h1 - h0) / 4
+                        ws = (w1 - w0) / 4
+                        if hs < 2:
+                            hs = 2
+                        if ws < 2:
+                            ws = 2
+                        for h in range(h0,h1,hs):
+                            for w in range(w0,w1,ws):
+                               x1 = np.minimum(img.shape[1] - 1, x0 + w)
+                               y1 = np.minimum(img.shape[0] - 1, y0 + h)
+                               r2 = (x0,y0,x1,y1)
+                               if toolkit.inter2union(r1,r2) <= 0.5:
+                                   continue
+                               feat = grad[y0:y1,x0:x1]
+                               feat = cv2.resize(feat,(8,8))
+                               feat.shape = (1,64)
+                               if len(allfeat) < 1:
+                                  allfeat = [feat]
+                               else:
+                                  allfeat.append(feat)       
+                    else:
+                        x1 = x0 + objw
+                        y1 = y0 + objh
+                        feat = grad[y0:y1,x0:x1]
+                        feat = cv2.resize(feat,(8,8))
+                        feat.shape = (1,64)
+                        if len(allfeat) < 1:
+                            allfeat = [feat]
+                        else:
+                            allfeat.append(feat)       
+
+
         posnum += len(allfeat)      
         if len(allfeat) > 0:
             with open(outdir+sname+'.pf','w') as fout:

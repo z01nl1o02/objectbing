@@ -72,7 +72,7 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
                             samples = np.vstack((samples, feat))
                             res.append([x / scalex, y / scaley, blkw, blkh])
             if len(res) > 0:
-                samples = normsamples(samples, minv,maxv)
+#                samples = normsamples(samples, minv,maxv)
                 scores = detector.decision_function(samples)
                 idx = [k for k,a in enumerate(scores) if a > 0]
                 if len(idx) > 0:
@@ -126,8 +126,8 @@ if __name__ == "__main__":
     with open('vocpath','r') as fin:
         vocpath = fin.readline().strip()
     imgpath = vocpath + "JPEGImages/000369.jpg"
-    imgpath = vocpath + "JPEGImages/000753.jpg"
-    if 1:
+    #imgpath = vocpath + "JPEGImages/000753.jpg"
+    if 0:
         with open('detector.txt','r') as fin:
             minv,maxv,detector = pickle.load(fin)
         predict_for_single_image(imgpath, minv, maxv, detector) 
