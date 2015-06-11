@@ -4,9 +4,11 @@ import numpy as np
 import pickle
 from sklearn import svm
 import toolkit as tk
-from get_trainset import get_norm_gradient
+from get_trainset import get_norm_gradient, max_inter2union
 from train_detector import normsamples
 import pdb
+import multiprocessing as mp
+from vocxml import VOCObject, VOCAnnotation
 
 def cmp_score(a,b):
     if a[4] < b[4]:
@@ -23,7 +25,6 @@ def cmp_pts_score(a,b):
         return -1
     else:
         return 0
-
 
 def nms_single_size(candpts, max_num, radius, imgsize):
     #nms for single size
@@ -71,8 +72,9 @@ def nms_single_size(candpts, max_num, radius, imgsize):
 
      
 def nms(cands, max_num):
-    with open('nms.input.dump', 'w') as fin:
-        pickle.dump(cands,fin)
+
+#    with open('nms.input.dump', 'w') as fin:
+#        pickle.dump(cands,fin)
 
     cands.sort(cmp_score)
     result = []
@@ -94,20 +96,20 @@ def nms(cands, max_num):
         result = result[0:num] 
     return result
 
-def predict_for_single_image(imgpath, minv, maxv, detector):
-    num_per_sz = 10
+def predict_for_single_image(imgpath, xmlpath, outpath, minv, maxv, detector, slient_mode=0):
+    num_per_sz = 100
     img = cv2.imread(imgpath,1)
     grads = get_norm_gradient(img)
     #blksize = (10,20,40,80,160,320)
-    blksize = (20,40,80)
+    blksize = (20,40,80,160,320)
     result = []
     for blkh in blksize:
         for blkw in blksize:
             scalex = 8.0 / blkw
             scaley = 8.0 / blkh
             dsize = (int(img.shape[1] * scalex), int(img.shape[0] * scaley))
-
-            print str(blkh) + 'x' + str(blkw) + ' ' + str(scaley) + 'x' + str(scalex) + ' ',
+            if 0 == slient_mode:
+                print str(blkh) + 'x' + str(blkw) + ' ' + str(scaley) + 'x' + str(scalex) + ' ',
             resizeds = []
             for grad in grads:
                 grad = cv2.resize(grad, dsize)
@@ -135,7 +137,8 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
                 scores = detector.decision_function(samples)
                 for k in range(len(scores)):
                     res[k][2] = scores[k]
-                print str(len(res)) + ' ',
+                if 0 == slient_mode:
+                    print str(len(res)) + ' ',
                 res = nms_single_size(res,num_per_sz,2,(resizeds[0].shape[0], resizeds[0].shape[1]))
                 cands = []
                 for x,y,s in res:
@@ -148,20 +151,43 @@ def predict_for_single_image(imgpath, minv, maxv, detector):
                     result = cands
                 else:
                     result.extend(cands)
-            print str(len(cands))
-
-    print "# of objects " + str(len(result))
-    num = 0
-    for x, y, w, h,s in result:
-        x = int(x)
-        y = int(y)
-        w = int(w)
-        h = int(h)
-        num += 1
-        cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
-    print "# of prd " + str(num)
-    cv2.imwrite('x.jpg',img)
-    return result                                    
+            if 0 == slient_mode:
+                print str(len(cands))
+    if 0 == slient_mode:
+        print "# of objects " + str(len(result))
+        num = 0
+        for x, y, w, h,s in result:
+            x = int(x)
+            y = int(y)
+            w = int(w)
+            h = int(h)
+            num += 1
+            cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
+        print "# of prd " + str(num)
+        cv2.imwrite('x.jpg',img)
+        return result       
+    else:
+        ann = VOCAnnotation()
+        ann.load(xmlpath)
+        rrs = []
+        for obj in ann.objects:
+            rrs.append([obj.xmin, obj.ymin, obj.xmax, obj.ymax])
+        pos = 0
+        with open(outpath, 'w') as f:
+            for k in range(len(result)):
+                c = result[k]
+                r = c[0:4]
+                s = c[4]
+                ovr = max_inter2union(r, rrs)
+                if ovr >= 0.5:
+                    l = 1
+                else:
+                    l = 0
+                pos += l
+                result[k].append(l)
+            pickle.dump(result, f)
+        with open(outpath+'['+str(pos)+','+str(len(result) - pos)+'].stat','w') as f:
+            f.write(str(pos) + ":" + str(len(result)))
 
 def run_dbg(imgpath):
     with open('nms.input.dump', 'r') as fin:
@@ -183,16 +209,37 @@ def run_dbg(imgpath):
     print "# of prd " + str(num)
     cv2.imwrite('x.jpg',img)
 
+def mp_run(imgpath,xmlpath,outpath):
+    with open('detector.txt','r') as fin:
+        minv,maxv,detector = pickle.load(fin)
+    predict_for_single_image(imgpath, xmlpath, outpath,minv, maxv, detector,1) 
 
+def run_with_mp(vocdir,outdir,cpunum):
+    pool = mp.Pool(processes=cpunum)
+    xmldir = vocdir+'Annotations/'
+    jpgdir = vocdir+'JPEGImages/'
+    xmls = tk.scanfor(xmldir, '.xml')
+    if 0:
+        for sname,fname in xmls:
+            mp_run(jpgdir+sname+'.jpg', fname, outdir+sname+'.f2')
+    else:
+        for sname,fname in xmls:
+            print sname
+            pool.apply_async(mp_run,(jpgdir+sname+'.jpg', fname, outdir+sname+'.f2'))
+        pool.close()
+        pool.join()
 
 if __name__ == "__main__":
     with open('vocpath','r') as fin:
         vocpath = fin.readline().strip()
     #imgpath = vocpath + "JPEGImages/000369.jpg"
     imgpath = vocpath + "JPEGImages/000753.jpg"
-    if 1:
+    mode = 2
+    if mode == 1:
         with open('detector.txt','r') as fin:
             minv,maxv,detector = pickle.load(fin)
         predict_for_single_image(imgpath, minv, maxv, detector) 
+    elif mode == 2:
+        run_with_mp(vocpath,'f2/',3)
     else:
         run_dbg(imgpath)
