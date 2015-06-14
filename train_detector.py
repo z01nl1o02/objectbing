@@ -131,7 +131,7 @@ def train_stage_2():
                 cands = pickle.load(f)
             if len(cands) > 0:
                 for cand in cands:
-                    if cand[5] > 0.5:
+                    if cand[5] > 0:
                         poss.append(cand)
                     else:
                         negs.append(cand)
@@ -195,7 +195,7 @@ def train_stage_2():
 if __name__ == "__main__":
     if 0 == cmp('stage1', sys.argv[1]):
         train_stage_1()
-    elif 0 == cmp('stage2', sys.argv[2]):
+    elif 0 == cmp('stage2', sys.argv[1]):
         train_stage_2()
     else:
         print 'stage1 or stage2'

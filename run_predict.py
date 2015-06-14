@@ -78,8 +78,8 @@ def nms(cands, max_num):
         result = result[0:num] 
     return result
 
-def predict_for_single_image(imgpath, xmlpath, outpath, minv, maxv, szdict, detector1, detector2 = None, slient_mode=0):
-    num_per_sz = 100
+def predict_for_single_image(imgpath, xmlpath, outpath, minv, maxv, szdict, detector1, detector2 = None, slient_mode=0,outjpg=None):
+    num_per_sz = 1000
     img = cv2.imread(imgpath,1)
     grads = get_norm_gradient(img)
     result = []
@@ -137,34 +137,63 @@ def predict_for_single_image(imgpath, xmlpath, outpath, minv, maxv, szdict, dete
             print str(len(cands))
 
     if not (detector2 is None):
-        spl = np.zeros((len(result), 1))
-        k = 0
+        print 'predict2 input: ',str(len(result))
+        spls = {}  
         for item in result:
-            spl[k] = item[4]
-            k+=1
-        for key in detector2.keys():
-            labels = detector2[key].predict(spl)
-            break
+            sz = (item[2],item[3])
+            if sz in detector2.keys():
+                if sz in spls.keys():
+                    spls[sz].append(item)
+                else:
+                    spls[sz] = [item]
+        result = []
+        for key in spls.keys():
+            spl = np.zeros((len(spls[key]),1))
 
-        for k in range(len(result)):
-            result[k].append(labels[k])
+            for k in range(len(spls[key])):
+                spl[k] = spls[key][k][4]
+
+            scores = detector2[key].decision_function(spl)
+            k = 0
+            for item in spls[key]:
+                item[4] = scores[k]
+                k += 1
+                result.append(item)
+
+
+        print 'predict2 output: ',str(len(result))
 
     if 0 == slient_mode:
         print "# of objects " + str(len(result))
+
+        ann = VOCAnnotation()
+        ann.load(xmlpath)
+        rrs = []
+        for obj in ann.objects:
+            rrs.append([obj.xmin, obj.ymin, obj.xmax, obj.ymax])
+
+
+        result.sort(cmp_score)
         num = 0
-        for x, y, w, h,s,c in result:
+        hit = 0
+        for x, y, w, h,s in result:
             x = int(x)
             y = int(y)
             w = int(w)
             h = int(h)
+            
             num += 1
-            if c > 0: 
-                print w,h
-                cv2.rectangle(img, (x,y),(x+w,y+h),(255,0,0),1)
-            #else:
-                #cv2.rectangle(img, (x,y),(x+w,y+h),(0,0,255),1)
-        print "# of prd " + str(num)
-        cv2.imwrite('x.jpg',img)
+            if num > 130:
+                break
+
+            r = [x,y,x+w,y+h]
+            ovr = max_inter2union(r, rrs)
+            if ovr > 0.5:
+                hit += 1
+                cv2.rectangle(img, (x,y),(x+w,y+h),(0,0,255),2)
+        print "# of prd " + str(hit)
+        if not (outjpg is None):
+            cv2.imwrite(outjpg,img)
         return result       
     else:
         ann = VOCAnnotation()
@@ -240,14 +269,17 @@ if __name__ == "__main__":
     with open('vocpath','r') as fin:
         vocpath = fin.readline().strip()
     #imgpath = vocpath + "JPEGImages/000369.jpg"
-    imgpath = vocpath + "JPEGImages/000753.jpg"
-    mode = 2
+    imgpath = vocpath + "JPEGImages/000002.jpg"
+    xmldir = vocpath+'Annotations/'
+    mode = 1
     if mode == 1:
         with open('detector.txt','r') as fin:
-            minv,maxv,detector = pickle.load(fin)
+            minv,maxv,szdict,detector = pickle.load(fin)
         with open('detector_stage2.txt','r') as f:
             detector2s = pickle.load(f)
-        predict_for_single_image(imgpath, None, None,minv, maxv, None,detector,detector2s) 
+        jpgs = tk.scanfor(vocpath+'JPEGImages/', '.jpg')
+        for sname, fname in jpgs:
+            predict_for_single_image(fname, xmldir+sname+'.xml', None,minv, maxv, szdict,detector,detector2s,outjpg='out/'+sname+'.jpg') 
     elif mode == 2:
         run_with_mp(vocpath,'f2/',3)
     else:
