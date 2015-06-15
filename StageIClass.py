@@ -4,7 +4,7 @@ from vocxml import VOCObject, VOCAnnotation
 from toolkit import get_norm_gradient, inter2union, maximum_inter2union, scanfor
 from sklearn import svm
 
-def cmp_2nd_item(a, b):
+def cmp_3rd_item(a, b):
     if a[2] < b[2]:
         return 1
     elif a[2] > b[2]:
@@ -168,7 +168,7 @@ class StageIClass:
 
 
             NBS = 3            
-            cands.sort(cmp_2nd_item) #sort in decressing order
+            cands.sort(cmp_3rd_item) #sort in decressing order
             flags = np.ones((dhei, dwid))
             num = 0
             for k in range(len(cands)):
