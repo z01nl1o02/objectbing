@@ -13,17 +13,24 @@ def cmp_3rd_item(a, b):
         return 0
 
 class StageIClass:
-    def __init__(self, vocdir):
+    def __init__(self, vocdir, verbose = True):
         self.jpgdir = vocdir + 'JPEGImages/'
         self.annotationdir = vocdir+'Annotations/'
         self.trainfilepath = vocdir+'ImageSets/Main/train.txt'
         self.testfilepath = vocdir+'ImageSets/Main/test.txt'
+        self.verbose = verbose
 
     def generate_trainset_for_stageII(self, svmIpath, outdir,num_per_sz = 100):
+        if self.verbose == True:
+            print 'generate trainset for stage II start '
         filenames = self.load_trainset_list()
+
         with open(svmIpath, 'r') as f:
             szdict, svmdet = pickle.load(f)
         for sname, jpgname, xmlname in filenames:
+            if self.verbose == True:
+                print ' ', sname
+
             annoparser = VOCAnnotation()
             annoparser.load(xmlname)
             objrects = []
@@ -131,9 +138,17 @@ class StageIClass:
         return negs  
 
     def generate_trainset(self,outdir):
+        if self.verbose == True:
+            print 'generate trainset for state I'
         filenames = self.load_trainset_list()
         AnnoParser = VOCAnnotation()
+        num = 0
         for sname, jpgname, xmlname in filenames:
+            if self.verbose == True:
+                print ' ',sname,
+                num += 1
+                if 0 == num%10:
+                    print ''
             samples = []
             img = cv2.imread(jpgname,1)
             AnnoParser.load(xmlname)
@@ -144,10 +159,13 @@ class StageIClass:
                 pickle.dump((poss, negs), f)
     
     def do_train(self, sampledir, svmpath):
+        if self.verbose == True:
+            print 'train in stage I start'
         filenames = scanfor(sampledir, '.sifeat')
         szdict = {}
         featlist = []
         labellist = []
+        num = 0
         for sname, fname in filenames:
             with open(fname, 'r') as f:
                 poss,negs = pickle.load(f)
@@ -165,6 +183,13 @@ class StageIClass:
             for feat,rect in negs:
                 featlist.append(feat)
                 labellist.append(-1)
+            
+            if self.verbose == True:
+                if 0 == num % 50:
+                    print '.',
+                if 0 == num % 2500:
+                    print num,'/',len(filenames)
+                num += 1
         samples = np.zeros( (len(labellist), 64))
         labels = np.array(labellist)
 
@@ -173,7 +198,8 @@ class StageIClass:
         posnum = np.sum(labels == 1)
         negnum = np.sum(labels == -1)
         total = labels.shape[0]
-        print 'StateI: train with pos#', posnum, 'neg#', negnum, ' ', total
+        if self.verbose == True:
+            print 'StateI: train with pos#', posnum, 'neg#', negnum, ' ', total
         svmdet = svm.LinearSVC(C=10.0,verbose=1,max_iter=5000,dual=False,tol=1e-6,penalty='l1') #1R_2LOSS
         svmdet.fit(samples,labels)
         with open(svmpath,'w') as f:

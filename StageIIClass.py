@@ -14,13 +14,19 @@ def cmp_2nd_item(a, b):
 
 
 class StageIIClass:
-    def __init__(self,vocdir):
+    def __init__(self,vocdir,verbose = True):
         self.vocdir = vocdir
+        self.verbose = True
         
     def do_train(self, featdir, svmpath):
+        if self.verbose == True:
+            print 'train in stage II start'
+
         filenames = scanfor(featdir, '.siifeat')
         szdict = {} #sz list is determined by samples for stage II
         for sname, fname in filenames:
+            if self.verbose == True:
+                print ' ',sname
             with open(fname, 'r') as f:
                 poss, negs = pickle.load(f)
             
@@ -68,6 +74,9 @@ class StageIIClass:
             poslabel = [1 for k in range(posnum)]
             neglabel = [-1 for k in range(negnum)]
             labels = np.array(poslabel + neglabel)
+            if self.verbose == True:
+                print 'pos:neg = ', len(poslabel), ':', len(neglabel), ' size = (', str(w) + ',' + str(h) + ')'
+
             svmdet = svm.LinearSVC(C=100.0,verbose=1,max_iter=5000,dual=False,tol=1e-6,penalty='l1') #1R_2LOSS
             svmdet.fit(samples,labels)
             svmdet_sz[sz] = svmdet
