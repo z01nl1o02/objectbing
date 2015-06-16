@@ -17,6 +17,43 @@ class StageIClass:
         self.jpgdir = vocdir + 'JPEGImages/'
         self.annotationdir = vocdir+'Annotations/'
         self.trainfilepath = vocdir+'ImageSets/Main/train.txt'
+        self.testfilepath = vocdir+'ImageSets/Main/test.txt'
+
+    def generate_trainset_for_stageII(self, svmIpath, outdir,num_per_sz = 100):
+        filenames = self.load_trainset_list()
+        with open(svmIpath, 'r') as f:
+            szdict, svmdet = pickle.load(f)
+        for sname, jpgname, xmlname in filenames:
+            annoparser = VOCAnnotation()
+            annoparser.load(xmlname)
+            objrects = []
+            for obj in annoparser.objects:
+                objrect = [obj.xmin, obj.ymin, obj.xmax, obj.ymax]  
+                objrects.append(objrect)
+            img = cv2.imread(jpgname,1)
+            cands = self.predict(img, szdict, svmdet, num_per_sz)
+            poss = []
+            negs = []
+            for candrect, candscore in cands: 
+                if maximum_inter2union(candrect, objrects) > 0.5:
+                     poss.append([candrect, candscore]) #pos
+                else:
+                     negs.append([candrect, candscore]) #pos
+            outfilepath = outdir+sname+'.sifeat'
+            with open(outfilepath, 'w') as f:
+                pickle.dump((poss,negs), f)
+
+    def load_testset_list(self):
+        filenames = []
+        with open(self.testfilepath, 'r') as f:
+            for line in f:
+                sname = line.strip()
+                jpgname = self.jpgdir + sname + '.jpg'
+                xmlname = self.annotationdir + sname + '.xml'
+                filenames.append([sname, jpgname, xmlname])
+        return filenames
+    
+
 
     def load_trainset_list(self):
         filenames = []
@@ -27,6 +64,7 @@ class StageIClass:
                 xmlname = self.annotationdir + sname + '.xml'
                 filenames.append([sname, jpgname, xmlname])
         return filenames
+    
 
     def generate_positive(self, AnnoParser, img):
         log2 = math.log(2)
@@ -82,7 +120,7 @@ class StageIClass:
                 continue
             r = [x0,y0,x1,y1]   
             
-            if maximum_inter2union(objrects,r) >= 0.5:
+            if maximum_inter2union(r,objrects) >= 0.5:
                 continue
 
             subimg = img[y0:y1,x0:x1,:]
