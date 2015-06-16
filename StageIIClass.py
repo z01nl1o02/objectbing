@@ -24,9 +24,15 @@ class StageIIClass:
 
         filenames = scanfor(featdir, '.siifeat')
         szdict = {} #sz list is determined by samples for stage II
+        num = 0
         for sname, fname in filenames:
             if self.verbose == True:
-                print ' ',sname
+                num += 1
+                if 0 == num%10:
+                    print '.',
+                if 0 == num%500:
+                    print num, '/', len(filenames)
+
             with open(fname, 'r') as f:
                 poss, negs = pickle.load(f)
             
@@ -52,7 +58,9 @@ class StageIIClass:
                     szdict[sz][0].append(s)
                 else:
                     szdict[sz] = [ [s], []] #[neg, pos]
-            
+        
+        if self.verbose == True:
+            print '' 
 
         svmdet_sz = {}
         for sz in szdict.keys():
@@ -85,7 +93,7 @@ class StageIIClass:
             pickle.dump(svmdet_sz, f)
 
     def do_predict(self, sample_sz, svmdet_sz, num_per_sz = 100):
-        result_sz = []
+        founds = []
         for sz in sample_sz.keys():
             if sz in svmdet_sz:
                 svmdet = svmdet_sz[sz]
@@ -133,5 +141,5 @@ class StageIIClass:
                     y0 = np.maximum(0, y - NBR)
                     y1 = np.minimum(h - 1, y + NBR)
                     flags[y0:y1,x0:x1] = 0
-                result_sz[sz] = result 
-        return result_sz
+                founds.extend(result)
+        return founds

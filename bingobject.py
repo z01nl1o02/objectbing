@@ -5,6 +5,7 @@ import cv2
 from StageIClass import StageIClass
 from StageIIClass import StageIIClass
 from vocxml import VOCObject, VOCAnnotation
+from toolkit import maximum_inter2union
 
 def trainI(intpath, svmIpath):
     with open('vocpath', 'r') as f:
@@ -28,6 +29,11 @@ def trainII(intpath, svmIpath, svmIIpath):
     stageII.do_train(intpath,svmIIpath)        
 
 def check(svmIpath, svmIIpath, outdir):
+    with open('vocpath', 'r') as f:
+        for line in f:
+            vocpath = line.strip()
+            break
+
     stageI = StageIClass(vocpath)
     stageII = StageIIClass(vocpath) 
    
@@ -42,9 +48,14 @@ def check(svmIpath, svmIIpath, outdir):
     for sname, jpgname, xmlname in filenames:
         annoparser.load(xmlname)
         img = cv2.imread(jpgname,1)
-        result = stageI.predict(img, szdict, svmdetI, 200)
+        result = stageI.do_predict(img, szdict, svmdetI, 200)
         sample_sz = {}
         for rect, score in result:
+            rect[0] = int(rect[0])
+            rect[1] = int(rect[1])
+            rect[2] = int(rect[2])
+            rect[3] = int(rect[3])
+
             w = rect[2] - rect[0]
             h = rect[3] - rect[1]
             sz = (w,h)
@@ -52,7 +63,7 @@ def check(svmIpath, svmIIpath, outdir):
                 sample_sz[sz].append([rect, score])
             else:
                 sample_sz[sz] = [[rect, score]]
-        result = stateII.predict(sample_sz, svmdetII_sz, 100)
+        result = stageII.do_predict(sample_sz, svmdetII_sz, 100)
 
         #evaluate
         objrects = []
