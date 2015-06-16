@@ -22,7 +22,7 @@ def trainII(intpath, svmIpath, svmIIpath):
             vocpath = line.strip()
             break
     stageI = StageIClass(vocpath)
-    stageI.generate_trainset_for_stageII(svmIpath, intdir,num_per_sz)
+    stageI.generate_trainset_for_stageII(svmIpath, intpath,num_per_sz)
     
     stageII = StageIIClass(vocpath) 
     stageII.do_train(intpath,svmIIpath)        
@@ -77,7 +77,7 @@ if __name__ == "__main__":
         if 0 == cmp(sys.argv[1], '-trainI'):
             trainI(intpath, svmI)    
         elif 0 == cmp(sys.argv[1], '-trainII'):
-            trainI(intpath, svmI,svmII)    
+            trainII(intpath, svmI,svmII)    
         elif 0 == cmp(sys.argv[1], '-check'):
             check(svmI,svmII, resultpath)
     else:

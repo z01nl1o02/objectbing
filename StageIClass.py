@@ -27,9 +27,15 @@ class StageIClass:
 
         with open(svmIpath, 'r') as f:
             szdict, svmdet = pickle.load(f)
+
+        num = 0
         for sname, jpgname, xmlname in filenames:
             if self.verbose == True:
-                print ' ', sname
+                num += 1
+                if 0 == num % 10:
+                    print '.',
+                if 0 == num % 500:
+                    print num, '/', len(filenames)
 
             annoparser = VOCAnnotation()
             annoparser.load(xmlname)
@@ -38,17 +44,23 @@ class StageIClass:
                 objrect = [obj.xmin, obj.ymin, obj.xmax, obj.ymax]  
                 objrects.append(objrect)
             img = cv2.imread(jpgname,1)
-            cands = self.predict(img, szdict, svmdet, num_per_sz)
+            cands = self.do_predict(img, szdict, svmdet, num_per_sz)
             poss = []
             negs = []
+            #positive: overlap with background object above 0.5
+            #negative: overlap with background object below 0.5
+            #the score is the real input for trainII
             for candrect, candscore in cands: 
                 if maximum_inter2union(candrect, objrects) > 0.5:
                      poss.append([candrect, candscore]) #pos
                 else:
-                     negs.append([candrect, candscore]) #pos
-            outfilepath = outdir+sname+'.sifeat'
+                     negs.append([candrect, candscore]) #neg
+            outfilepath = outdir+sname+'.siifeat'
             with open(outfilepath, 'w') as f:
                 pickle.dump((poss,negs), f)
+
+        if self.verbose == True:
+            print ''
 
     def load_testset_list(self):
         filenames = []
@@ -82,12 +94,15 @@ class StageIClass:
             h = objrect[3] - objrect[1]
             w0 = int( math.log(w) / log2 - 0.5)
             h0 = int( math.log(h) / log2 - 0.5)
+            w0 = int( math.pow(2, w0))
+            h0 = int( math.pow(2, h0))
             w0 = np.maximum(w0, 16)
             h0 = np.maximum(h0, 16)
-            ratio = [k for k in [1,2,3,4]]
             rects = []
-            for w in ratio * w0:
-                for h in ratio * h0:
+            ws = [w0 * k for k in [1,2,4,8]]
+            hs = [h0 * k for k in [1,2,4,8]]
+            for w in ws:
+                for h in hs:
                     r = [obj.xmin, obj.ymin, obj.xmin + w, obj.ymin + h]
                     if r[2] >= img.shape[1] or r[3] >= img.shape[0]:
                         continue
@@ -96,12 +111,14 @@ class StageIClass:
                     rects.append(r)
             for r in rects:
                 subimg = img[r[1]:r[3], r[0]:r[2],:]
+                subimg = cv2.resize(subimg,(8,8))
                 feat = get_norm_gradient(subimg)
+                feat = np.reshape(feat, (1,64))
                 poss.append([feat, r])
         return poss
 
     def generate_negative(self, AnnoParser, img):
-        trynum = 100
+        trynum = 10
         negs = []
         objrects = []
         for obj in AnnoParser.objects:
@@ -132,7 +149,9 @@ class StageIClass:
                 continue
 
             subimg = img[y0:y1,x0:x1,:]
+            subimg = cv2.resize(subimg,(8,8))
             feat = get_norm_gradient(subimg)
+            feat = np.reshape(feat,(1,64))
             negs.append([feat, r])
 
         return negs  
@@ -145,10 +164,11 @@ class StageIClass:
         num = 0
         for sname, jpgname, xmlname in filenames:
             if self.verbose == True:
-                print ' ',sname,
                 num += 1
                 if 0 == num%10:
-                    print ''
+                    print '.',
+                if 0 == num%500:
+                    print num, '/', len(filenames)
             samples = []
             img = cv2.imread(jpgname,1)
             AnnoParser.load(xmlname)
@@ -157,6 +177,8 @@ class StageIClass:
             outfilename = outdir + sname + '.sifeat'
             with open(outfilename, 'w') as f:
                 pickle.dump((poss, negs), f)
+        if self.verbose == True:
+            print ''
     
     def do_train(self, sampledir, svmpath):
         if self.verbose == True:
@@ -165,7 +187,7 @@ class StageIClass:
         szdict = {}
         featlist = []
         labellist = []
-        num = 0
+        num = 1
         for sname, fname in filenames:
             with open(fname, 'r') as f:
                 poss,negs = pickle.load(f)
@@ -213,14 +235,16 @@ class StageIClass:
             blkw,blkh = key
             if szdict[key] < 50:
                 continue #ignore size with few samples
+            #resize full image to make each block fitting to 8x8
             dwid = int(8.0 * img.shape[1]/ blkw)
             dhei = int(8.0 * img.shape[0]/ blkh)
             if dwid < 16 or dhei < 16:
                 continue
             resized = cv2.resize(grad, (dwid,dhei))
             for y in range(dhei - 8):
-                for  x in range(dwei - 8):
+                for  x in range(dwid - 8):
                     feat = resized[y:y+8,x:x+8]
+                    feat = np.reshape(feat,(1,64))
                     cands.append([(x,y), feat])
             
             samples = np.zeros( (len(cands), 64))
