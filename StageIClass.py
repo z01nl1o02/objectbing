@@ -78,6 +78,7 @@ class StageIClass:
             w0 = np.maximum(w0, 16)
             h0 = np.maximum(h0, 16)
             ratio = [k for k in [1,2,3,4]]
+            rects = []
             for w in ratio * w0:
                 for h in ratio * h0:
                     r = [obj.xmin, obj.ymin, obj.xmin + w, obj.ymin + h]
@@ -156,7 +157,7 @@ class StageIClass:
                 sz = (w,h)
                 if sz in szdict:
                     szdict[sz] += 1
-                else
+                else:
                     szdict[sz] = 1                         
                 featlist.append(feat) 
                 labellist.append(1)

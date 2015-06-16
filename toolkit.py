@@ -32,7 +32,7 @@ def maximum_inter2union(r1, rrs):
     ovrs = np.zeros((1,len(rrs)))
     for k in range(len(rrs)):
         r2 = rrs[k]
-        ovrs[0,k] = toolkit.inter2union(r1, r2)
+        ovrs[0,k] = inter2union(r1, r2)
     return ovrs.max()
 
 

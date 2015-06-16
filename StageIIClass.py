@@ -13,7 +13,7 @@ def cmp_2nd_item(a, b):
 
 
 
-class StateIIClass:
+class StageIIClass:
     def __init__(self,vocdir):
         self.vocdir = vocdir
         
@@ -33,7 +33,7 @@ class StateIIClass:
                 s = item[1]
                 if sz in szdict:
                     szdict[sz][1].append(s)
-                else
+                else:
                     szdict[sz] = [ [], [s]] #[neg, pos]
             
             for  item in negs:
@@ -44,7 +44,7 @@ class StateIIClass:
                 s = item[1]
                 if sz in szdict:
                     szdict[sz][0].append(s)
-                else
+                else:
                     szdict[sz] = [ [s], []] #[neg, pos]
             
 

@@ -22,7 +22,7 @@ def trainII(intpath, svmIpath, svmIIpath):
             vocpath = line.strip()
             break
     stageI = StageIClass(vocpath)
-    stageI.generate_trainset_for_stageII(svmIpath, intdir,num_per_sz):
+    stageI.generate_trainset_for_stageII(svmIpath, intdir,num_per_sz)
     
     stageII = StageIIClass(vocpath) 
     stageII.do_train(intpath,svmIIpath)        
@@ -50,7 +50,7 @@ def check(svmIpath, svmIIpath, outdir):
             sz = (w,h)
             if sz in sample_sz:
                 sample_sz[sz].append([rect, score])
-            else
+            else:
                 sample_sz[sz] = [[rect, score]]
         result = stateII.predict(sample_sz, svmdetII_sz, 100)
 
@@ -73,12 +73,12 @@ if __name__ == "__main__":
     svmII = 'svmII.txt'
     resultpath = 'result/'
 
-    if len(argv) == 2:
-        if 0 == cmp(argv[1], '-trainI'):
+    if len(sys.argv) == 2:
+        if 0 == cmp(sys.argv[1], '-trainI'):
             trainI(intpath, svmI)    
-        elif 0 == cmp(argv[1], '-trainII'):
+        elif 0 == cmp(sys.argv[1], '-trainII'):
             trainI(intpath, svmI,svmII)    
-        elif 0 == cmp(argv[1], '-check'):
+        elif 0 == cmp(sys.argv[1], '-check'):
             check(svmI,svmII, resultpath)
     else:
         print 'trainI/trainII/check'
