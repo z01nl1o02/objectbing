@@ -122,7 +122,7 @@ class StageIIClass:
                 sample_sz[sz].sort(cmp_2nd_item)
                 flags = np.ones((h,w))
                 result = []
-                NBR = 3
+                NBR = 2
                 num = 0
                 for item in sample_sz[sz]:
                     if num >= num_per_sz:

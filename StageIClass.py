@@ -14,7 +14,6 @@ def cmp_3rd_item(a, b):
         return 0
 
 
-
 def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
     result = []
     grad = get_norm_gradient(img)
@@ -57,7 +56,13 @@ def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
                 continue
             x0 = x * blkw / 8.0
             y0 = y * blkh / 8.0
-            result.append([[x0,y0,x0+blkw,y0+blkh], s])
+            x1 = x0 + blkw
+            y1 = y0 + blkh
+            x0 = int(x0)
+            y0 = int(y0)
+            x1 = int(x1)
+            y1 = int(y1) #replace float with int to save IO time
+            result.append([[x0,y0,x1,y1], s])
             num += 1
             x0 = np.maximum(0, x - NBS)
             y0 = np.maximum(0, y - NBS)
@@ -90,6 +95,7 @@ def generate_trainset_for_stageII_core(svmIpath,sname, jpgname, xmlname,num_per_
              poss.append([candrect, candscore]) #pos
         else:
              negs.append([candrect, candscore]) #neg
+
     outfilepath = outdir+sname+'.siifeat'
     with open(outfilepath, 'w') as f:
         pickle.dump((poss,negs), f)
