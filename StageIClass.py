@@ -3,6 +3,7 @@ import numpy as np
 from vocxml import VOCObject, VOCAnnotation
 from toolkit import get_norm_gradient, inter2union, maximum_inter2union, scanfor
 from sklearn import svm
+import multiprocessing as mp
 
 def cmp_3rd_item(a, b):
     if a[2] < b[2]:
@@ -11,6 +12,36 @@ def cmp_3rd_item(a, b):
         return -1
     else:
         return 0
+
+def generate_trainset_for_stageII_core(svmIpath,sname, jpgname, xmlname,outdir):
+    annoparser = VOCAnnotation()
+    annoparser.load(xmlname)
+    objrects = []
+   
+    with open(svmIpath, 'r') as f:
+        szdict, svmdet = pickle.load(f)
+    
+    for obj in annoparser.objects:
+        objrect = [obj.xmin, obj.ymin, obj.xmax, obj.ymax]  
+        objrects.append(objrect)
+    img = cv2.imread(jpgname,1)
+    cands = self.do_predict(img, szdict, svmdet, num_per_sz)
+    poss = []
+    negs = []
+    #positive: overlap with background object above 0.5
+    #negative: overlap with background object below 0.5
+    #the score is the real input for trainII
+    for candrect, candscore in cands: 
+        if maximum_inter2union(candrect, objrects) > 0.5:
+             poss.append([candrect, candscore]) #pos
+        else:
+             negs.append([candrect, candscore]) #neg
+    outfilepath = outdir+sname+'.siifeat'
+    with open(outfilepath, 'w') as f:
+        pickle.dump((poss,negs), f)
+
+
+
 
 class StageIClass:
     def __init__(self, vocdir, verbose = True):
@@ -24,43 +55,13 @@ class StageIClass:
         if self.verbose == True:
             print 'generate trainset for stage II start '
         filenames = self.load_trainset_list()
-
-        with open(svmIpath, 'r') as f:
-            szdict, svmdet = pickle.load(f)
-
-        num = 0
+        cpunum = mp.cpu_count() - 1
+        cpunum = np.maximum(cpunum,1)
+        mppool = mp.Pool(cpunum)
         for sname, jpgname, xmlname in filenames:
-            if self.verbose == True:
-                num += 1
-                if 0 == num % 10:
-                    print '.',
-                if 0 == num % 500:
-                    print num, '/', len(filenames)
-
-            annoparser = VOCAnnotation()
-            annoparser.load(xmlname)
-            objrects = []
-            for obj in annoparser.objects:
-                objrect = [obj.xmin, obj.ymin, obj.xmax, obj.ymax]  
-                objrects.append(objrect)
-            img = cv2.imread(jpgname,1)
-            cands = self.do_predict(img, szdict, svmdet, num_per_sz)
-            poss = []
-            negs = []
-            #positive: overlap with background object above 0.5
-            #negative: overlap with background object below 0.5
-            #the score is the real input for trainII
-            for candrect, candscore in cands: 
-                if maximum_inter2union(candrect, objrects) > 0.5:
-                     poss.append([candrect, candscore]) #pos
-                else:
-                     negs.append([candrect, candscore]) #neg
-            outfilepath = outdir+sname+'.siifeat'
-            with open(outfilepath, 'w') as f:
-                pickle.dump((poss,negs), f)
-
-        if self.verbose == True:
-            print ''
+            mppool.apply_async(generate_trainset_for_stageII_core,(svmIpath,sname,jpgname,xmlname,outdir))
+        mppool.close()
+        mppool.join()
 
     def load_testset_list(self):
         filenames = []
@@ -273,7 +274,7 @@ class StageIClass:
                 num += 1
                 x0 = np.maximum(0, x - NBS)
                 y0 = np.maximum(0, y - NBS)
-                x1 = np.minimum(dwid-1, x + blkw)
-                y1 = np.minimum(dhei-1, y + blkh)
+                x1 = np.minimum(dwid-1, x + NBS)
+                y1 = np.minimum(dhei-1, y + NBS)
                 flags[y0:y1,x0:x1] = 0 #non-maxima-suppress
         return result 

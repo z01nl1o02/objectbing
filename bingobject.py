@@ -5,7 +5,7 @@ import cv2
 from StageIClass import StageIClass
 from StageIIClass import StageIIClass
 from vocxml import VOCObject, VOCAnnotation
-from toolkit import maximum_inter2union
+from toolkit import maximum_inter2union,scanfor
 
 def trainI(intpath, svmIpath):
     with open('vocpath', 'r') as f:
@@ -44,11 +44,15 @@ def check(svmIpath, svmIIpath, outdir):
         svmdetII_sz = pickle.load(f) 
 
     annoparser = VOCAnnotation()
-    filenames = stageI.load_testset_list()
-    for sname, jpgname, xmlname in filenames:
+    #filenames = stageI.load_testset_list()
+    #for sname, jpgname, xmlname in filenames:
+    filenames = scanfor(vocpath+'JPEGImages/','.jpg')
+    for sname, jpgname in filenames:
+        print sname
+        xmlname = vocpath + "Annotations/" + sname + '.xml'
         annoparser.load(xmlname)
         img = cv2.imread(jpgname,1)
-        result = stageI.do_predict(img, szdict, svmdetI, 200)
+        result = stageI.do_predict(img, szdict, svmdetI, 1000)
         sample_sz = {}
         for rect, score in result:
             rect[0] = int(rect[0])
