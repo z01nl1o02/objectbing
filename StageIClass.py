@@ -13,19 +13,73 @@ def cmp_3rd_item(a, b):
     else:
         return 0
 
-def generate_trainset_for_stageII_core(svmIpath,sname, jpgname, xmlname,outdir):
+
+
+def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
+    result = []
+    grad = get_norm_gradient(img)
+    for key in szdict.keys():
+        cands = []
+        blkw,blkh = key
+        if szdict[key] < 50:
+            continue #ignore size with few samples
+        #resize full image to make each block fitting to 8x8
+        dwid = int(8.0 * img.shape[1]/ blkw)
+        dhei = int(8.0 * img.shape[0]/ blkh)
+        if dwid < 16 or dhei < 16:
+            continue
+        resized = cv2.resize(grad, (dwid,dhei))
+        for y in range(dhei - 8):
+            for  x in range(dwid - 8):
+                feat = resized[y:y+8,x:x+8]
+                feat = np.reshape(feat,(1,64))
+                cands.append([(x,y), feat])
+        
+        samples = np.zeros( (len(cands), 64))
+        for k in range(samples.shape[0]):
+            samples[k,:] = cands[k][1] 
+
+        scores = svmdet.decision_function(samples)
+        for k in range(len(cands)):
+            cands[k].append(scores[k])
+
+
+        NBS = 2        
+        cands.sort(cmp_3rd_item) #sort in decressing order
+        flags = np.ones((dhei, dwid))
+        num = 0
+        for k in range(len(cands)):
+            if num >= num_per_sz:
+                break
+            x,y = cands[k][0]
+            s = cands[k][2]
+            if flags[y,x] < 0.5:
+                continue
+            x0 = x * blkw / 8.0
+            y0 = y * blkh / 8.0
+            result.append([[x0,y0,x0+blkw,y0+blkh], s])
+            num += 1
+            x0 = np.maximum(0, x - NBS)
+            y0 = np.maximum(0, y - NBS)
+            x1 = np.minimum(dwid-1, x + NBS)
+            y1 = np.minimum(dhei-1, y + NBS)
+            flags[y0:y1,x0:x1] = 0 #non-maxima-suppress
+    return result 
+
+def generate_trainset_for_stageII_core(svmIpath,sname, jpgname, xmlname,num_per_sz, outdir):
     annoparser = VOCAnnotation()
     annoparser.load(xmlname)
     objrects = []
-   
     with open(svmIpath, 'r') as f:
         szdict, svmdet = pickle.load(f)
     
+
     for obj in annoparser.objects:
         objrect = [obj.xmin, obj.ymin, obj.xmax, obj.ymax]  
         objrects.append(objrect)
+
     img = cv2.imread(jpgname,1)
-    cands = self.do_predict(img, szdict, svmdet, num_per_sz)
+    cands = do_predict_core(img, szdict, svmdet, num_per_sz)
     poss = []
     negs = []
     #positive: overlap with background object above 0.5
@@ -57,11 +111,16 @@ class StageIClass:
         filenames = self.load_trainset_list()
         cpunum = mp.cpu_count() - 1
         cpunum = np.maximum(cpunum,1)
-        mppool = mp.Pool(cpunum)
-        for sname, jpgname, xmlname in filenames:
-            mppool.apply_async(generate_trainset_for_stageII_core,(svmIpath,sname,jpgname,xmlname,outdir))
-        mppool.close()
-        mppool.join()
+        if 0:
+            for sname, jpgname, xmlname in filenames:
+                generate_trainset_for_stageII_core(svmIpath,sname,jpgname,xmlname,num_per_sz,outdir)
+        else:
+            mppool = mp.Pool(cpunum)
+            for sname, jpgname, xmlname in filenames:
+                mppool.apply_async(generate_trainset_for_stageII_core,(svmIpath,sname,jpgname,xmlname,num_per_sz,outdir))
+            mppool.close()
+            mppool.join()
+
 
     def load_testset_list(self):
         filenames = []
@@ -229,52 +288,5 @@ class StageIClass:
             pickle.dump((szdict, svmdet), f)
 
     def do_predict(self, img, szdict,svmdet, num_per_sz = 100):
-        result = []
-        grad = get_norm_gradient(img)
-        for key in szdict.keys():
-            cands = []
-            blkw,blkh = key
-            if szdict[key] < 50:
-                continue #ignore size with few samples
-            #resize full image to make each block fitting to 8x8
-            dwid = int(8.0 * img.shape[1]/ blkw)
-            dhei = int(8.0 * img.shape[0]/ blkh)
-            if dwid < 16 or dhei < 16:
-                continue
-            resized = cv2.resize(grad, (dwid,dhei))
-            for y in range(dhei - 8):
-                for  x in range(dwid - 8):
-                    feat = resized[y:y+8,x:x+8]
-                    feat = np.reshape(feat,(1,64))
-                    cands.append([(x,y), feat])
-            
-            samples = np.zeros( (len(cands), 64))
-            for k in range(samples.shape[0]):
-                samples[k,:] = cands[k][1] 
-
-            scores = svmdet.decision_function(samples)
-            for k in range(len(cands)):
-                cands[k].append(scores[k])
-
-
-            NBS = 3            
-            cands.sort(cmp_3rd_item) #sort in decressing order
-            flags = np.ones((dhei, dwid))
-            num = 0
-            for k in range(len(cands)):
-                if num >= num_per_sz:
-                    break
-                x,y = cands[k][0]
-                s = cands[k][2]
-                if flags[y,x] < 0.5:
-                    continue
-                x0 = x * blkw / 8.0
-                y0 = y * blkh / 8.0
-                result.append([[x0,y0,x0+blkw,y0+blkh], s])
-                num += 1
-                x0 = np.maximum(0, x - NBS)
-                y0 = np.maximum(0, y - NBS)
-                x1 = np.minimum(dwid-1, x + NBS)
-                y1 = np.minimum(dhei-1, y + NBS)
-                flags[y0:y1,x0:x1] = 0 #non-maxima-suppress
+        result = do_predict_core(img,szdict, svmdet, num_per_sz)
         return result 
