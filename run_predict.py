@@ -103,17 +103,22 @@ def predict_for_single_image(imgpath, xmlpath, outpath, minv, maxv, szdict, dete
             else:
                 resizeds.append(grad)
         res = []
+        samplelist = []
         for y in range(resizeds[0].shape[0] - 8):
             for x in range(resizeds[0].shape[1] - 8):
                 for resized in resizeds:
                     feat = resized[y:y+8, x:x+8]
                     feat = np.reshape(feat,(1,64))
                     if len(res) < 1:
-                        samples = feat
+                        samplelist = [feat]
                         res = [[x,y,0]]
                     else:
-                        samples = np.vstack((samples, feat))
+                        samplelist.append(feat)
                         res.append([x,y,0])
+
+        samples = np.zeros((len(samplelist), 64))
+        for k in range(samples.shape[0]):
+            samples[k,:] = samplelist[k]
 
         if len(res) > 0:
             scores = detector1.decision_function(samples)
