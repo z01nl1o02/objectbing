@@ -17,7 +17,7 @@ def cmp_3rd_item(a, b):
 def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
     result = []
     grad = get_norm_gradient(img)
-    for key in szdict.keys():
+    for key in szdict.keys(): #loop for each size
         cands = []
         blkw,blkh = key
         if szdict[key] < 50:
@@ -25,15 +25,16 @@ def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
         #resize full image to make each block fitting to 8x8
         dwid = int(8.0 * img.shape[1]/ blkw)
         dhei = int(8.0 * img.shape[0]/ blkh)
-        if dwid < 16 or dhei < 16:
-            continue
+        if dwid < 8 or dhei < 8:
+            continue #allow smaller image here to detect larger object in future
         resized = cv2.resize(grad, (dwid,dhei))
         for y in range(dhei - 8):
             for  x in range(dwid - 8):
                 feat = resized[y:y+8,x:x+8]
                 feat = np.reshape(feat,(1,64))
                 cands.append([(x,y), feat])
-        
+        if len(cands) < 1:
+            continue 
         samples = np.zeros( (len(cands), 64))
         for k in range(samples.shape[0]):
             samples[k,:] = cands[k][1] 
@@ -43,6 +44,7 @@ def do_predict_core(img, szdict,svmdet, num_per_sz = 100):
             cands[k].append(scores[k])
 
 
+        #non-maxima-suppression
         NBS = 2        
         cands.sort(cmp_3rd_item) #sort in decressing order
         flags = np.ones((dhei, dwid))
